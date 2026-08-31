@@ -1,4 +1,9 @@
 import '@testing-library/jest-dom'
+
+// Next server modules expect Fetch API constructors in the Jest environment.
+if (typeof globalThis.Request === 'undefined') globalThis.Request = class {};
+if (typeof globalThis.Response === 'undefined') globalThis.Response = class {};
+if (typeof globalThis.Headers === 'undefined') globalThis.Headers = class {};
 import 'jest-axe/extend-expect'
 import { configure } from '@testing-library/react'
 
@@ -65,24 +70,15 @@ Object.defineProperty(window, 'ethereum', {
   writable: true,
 })
 
-// Mock Web3Wallet
-jest.mock('@walletconnect/web3-provider', () => {
-  return jest.fn().mockImplementation(() => ({
-    enable: jest.fn(),
-    on: jest.fn(),
-    close: jest.fn(),
-  }))
-})
-
-// Mock Coinbase Wallet SDK
+// Web3Wallet, Coinbase Wallet SDK, and MetaMask SDK mocks
+// are defined per-test in walletConnectors tests to allow dynamic behavior.
+// Mocks for other suites that need generic stubs:
 jest.mock('@coinbase/wallet-sdk', () => {
   return jest.fn().mockImplementation(() => ({
     makeWeb3Provider: jest.fn(),
     disconnect: jest.fn(),
   }))
 })
-
-// Mock MetaMask SDK
 jest.mock('@metamask/sdk', () => {
   return jest.fn().mockImplementation(() => ({
     connect: jest.fn(),
@@ -137,3 +133,14 @@ const sessionStorageMock = {
   clear: jest.fn(),
 }
 global.sessionStorage = sessionStorageMock
+
+// Polyfill crypto.randomUUID for jsdom (Node.js <19 / jsdom without randomUUID)
+if (typeof globalThis.crypto !== 'undefined' && !globalThis.crypto.randomUUID) {
+  globalThis.crypto.randomUUID = function randomUUID() {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+      const r = (Math.random() * 16) | 0;
+      const v = c === 'x' ? r : (r & 0x3) | 0x8;
+      return v.toString(16);
+    });
+  }
+}
